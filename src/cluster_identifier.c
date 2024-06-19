@@ -8,6 +8,7 @@
 #include "htslib/hts.h"
 #include "htslib/sam.h"
 #include "htslib/cram.h"
+#include "htslib/thread_pool.h"
 
 /*
   ./soft_clipped_clusters file.bam
@@ -74,7 +75,7 @@ static void print_left_align( char**, int ) __attribute__ ((unused));
 static void print_right_align( int, char**, int ) __attribute__ ((unused));
 
 static void usage(const char *argv0) {
-    fprintf(stderr, "Usage: %s [-m min soft clipped bases] [-s min soft clipped reads] [-r region] cram/bam\n", argv0 );
+    fprintf(stderr, "Usage: %s [-m min soft clipped bases] [-s min soft clipped reads] [-r region] [-R reference] [-@ thread] cram/bam\n", argv0 );
     exit(EXIT_FAILURE);
 }
 
@@ -83,10 +84,12 @@ int main( int argc, char** argv) {
     int c;
     int min_sc_bases = 10;
     int min_sc_reads = 5;
+	int n_thread = 2;
     bool debug = false;
     char *region = "all";
+	char *reference = NULL;
 
-    while( (c = getopt(argc, argv, "m:s:r:v")) != -1 ) {
+    while( (c = getopt(argc, argv, "m:s:r:R:@:v")) != -1 ) {
         switch(c) {
             case 'm':
                 min_sc_bases = atoi(optarg);
@@ -96,6 +99,12 @@ int main( int argc, char** argv) {
                 break;
             case 'r':
                 region = optarg;
+                break;
+            case 'R':
+                reference = optarg;
+                break;
+            case '@':
+                n_thread = atoi(optarg);
                 break;
             case 'v':
                 fprintf(stderr, "%s: version %s\n", PROG, VERSION);
@@ -128,6 +137,18 @@ int main( int argc, char** argv) {
 
     // Open file and index and create header object.
     htsFile *in_fp = hts_open( fn, "r");
+	if (hts_set_fai_filename(in_fp, reference) != 0) {
+		sam_close(in_fp);
+		free(in_fp);
+		return -1;
+	}
+	htsThreadPool p = {NULL, 0};
+	if (!(p.pool = hts_tpool_init(n_thread))){
+		fprintf(stderr,"Error creating thread pool\n");
+		exit(2);
+	}
+	hts_set_thread_pool(in_fp, &p);
+
     hts_idx_t *idx = sam_index_load( in_fp, fn ); 
 
     if( idx == NULL ) {
@@ -153,7 +174,7 @@ int main( int argc, char** argv) {
         }
         process_region( in_fp, idx, header, region, settings );
     }
-
+	if (p.pool)  hts_tpool_destroy(p.pool);
     bam_hdr_destroy( header );
     hts_idx_destroy( idx );
     hts_close( in_fp);
