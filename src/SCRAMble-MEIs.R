@@ -216,7 +216,7 @@ mei.write = function(SampleID, winners, fa, blastRef=None, outFile=None){
                     'ALT' = paste('<INS:ME:', toupper(winners$MEI_Family), '>', sep=''),
                     'QUAL' = winners$Alignment_Score,
                     'FORMAT' = 'GT:CR',
-                    'SampleID' = paste('./.', winners$ClippedReads_In_Cluster, sep=':'),
+                    'SampleID' = paste('1/.', winners$ClippedReads_In_Cluster, sep=':'),
                     'Strands' = ifelse(winners$Insertion_Direction == 'Plus', "+", "-"),
                     'ClippedSequence' = winners$ClippedSequence,
                     stringsAsFactors = F,check.names = F)
@@ -241,9 +241,13 @@ mei.write = function(SampleID, winners, fa, blastRef=None, outFile=None){
   desired_order <- c(names(fa))
   # desired_order <- c('chrM', paste0('chr',as.character(1:22)), 'chrX', 'chrY')
   fixed <- fixed %>% filter(`#CHROM` %in% desired_order) %>% arrange(match(`#CHROM`, desired_order), POS)
-  # suppressWarnings(write.table(winners, sub('.vcf', '.txt', outFile), row.names=F, col.names=T, quote=F, append=F, sep='\t'))
-  suppressWarnings(write.table(header, outFile, row.names=F, col.names=F, quote=F, append=F, sep='\t'))
-  suppressWarnings(write.table(fixed, outFile, row.names=F, col.names=T, quote=F, append=T, sep='\t'))
+  # suppressWarnings(write.table(winners, sub('.vcf.gz', '.txt', outFile), row.names=F, col.names=T, quote=F, append=F, sep='\t'))
+  ugzOutFile <- sub('.vcf.gz', '.vcf', outFile)
+  suppressWarnings(write.table(header, ugzOutFile, row.names=F, col.names=F, quote=F, append=F, sep='\t'))
+  suppressWarnings(write.table(fixed, ugzOutFile, row.names=F, col.names=T, quote=F, append=T, sep='\t'))
+  bgzip(ugzOutFile, dest=outFile, overwrite=TRUE)
+  file.remove(ugzOutFile)
+
 }
 
 if(is.null(blastRef)){

@@ -66,7 +66,7 @@ To run SCRAMble-MEIs(with default settings):
         --mei-refs /path/to/scramble/genome/MEI_consensus_seqs.fa \
         --ref /path/to/genome/human_genome.fasta
         --cluster-file /path/to/test.clusters.txt \
-        --out-file /path/to/test.vcf 	\
+        --out-file /path/to/test.vcf.gz 	\
 
 
 Output
