@@ -1,7 +1,7 @@
 ## Compilation options/libs
 CC = gcc
 CFLAGS = -Wall -O2 -I/path/to/libdeflate -I/path/to/htslib
-LIBS = -L/path/to/libdeflate/build -L/path/to/htslib -lpthread -llzma -lbz2 -lcurl -lcrypto -lm -lz -lhts -ldeflate 
+LIBS = -L/path/to/libdeflate/build -L/path/to/htslib -llzma -lbz2 -lcurl -lcrypto -lm -lz -lhts -ldeflate
 
 ## source and exe names
 SRC = cluster_identifier.c
