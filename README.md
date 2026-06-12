@@ -10,7 +10,7 @@ Repository Layout
 Build
 -----
 
-Install dependencies (Ubuntu 20.04):
+Install full pipeline dependencies for a dynamic Ubuntu 20.04 setup:
 
     apt-get update
     apt-get install -y  \
@@ -36,16 +36,92 @@ Install dependencies (Ubuntu 20.04):
         r-cran-optparse \
         zlib1g-dev
 
+This installs the R/BLAST runtime and the system development libraries needed
+for a normal Ubuntu build. It is not used for the portable static
+`cluster_identifier` binary described below.
+
 Install R packages dependencies:
 
     Rscript -e "library(devtools); install_github('mhahsler/rBLAST')"
 
-To build the cluster_identifier (estimated install time <5 minutes):
+To build the portable static `cluster_identifier`, build on the oldest target
+CentOS system. Install zlib, bzip2, xz/liblzma, and openssl under a single
+dependency prefix, for example `/bi/software/static`:
+
+    $ mkdir -p /bi/software/static/src
+    $ cd /bi/software/static/src
+
+    $ wget https://zlib.net/fossils/zlib-1.3.1.tar.gz
+    $ tar -xzf zlib-1.3.1.tar.gz
+    $ cd zlib-1.3.1
+    $ CFLAGS="-O2 -fPIC" ./configure --prefix=/bi/software/static --static
+    $ make
+    $ make install
+
+    $ cd /bi/software/static/src
+    $ wget https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz
+    $ tar -xzf bzip2-1.0.8.tar.gz
+    $ cd bzip2-1.0.8
+    $ make clean
+    $ make CFLAGS="-O2 -fPIC"
+    $ make install PREFIX=/bi/software/static
+
+    $ cd /bi/software/static/src
+    $ wget https://tukaani.org/xz/xz-5.4.6.tar.gz
+    $ tar -xzf xz-5.4.6.tar.gz
+    $ cd xz-5.4.6
+    $ CFLAGS="-O2 -fPIC" ./configure \
+        --prefix=/bi/software/static \
+        --disable-shared \
+        --enable-static
+    $ make
+    $ make install
+
+    $ cd /bi/software/static/src
+    $ wget https://www.openssl.org/source/openssl-1.1.1w.tar.gz
+    $ tar -xzf openssl-1.1.1w.tar.gz
+    $ cd openssl-1.1.1w
+    $ ./config --prefix=/bi/software/static no-shared
+    $ make
+    $ make install_sw
+
+Then build htslib 1.17 as a static library only:
+
+    $ cd /path/to/htslib-1.17
+    $ make clean
+    $ CPPFLAGS="-I/bi/software/static/include" \
+      LDFLAGS="-L/bi/software/static/lib" \
+      ./configure --disable-libcurl
+    $ make lib-static
+
+Then build `cluster_identifier` against that htslib source/build directory:
 
     $ cd src
-    $ make
+    $ make clean
+    $ make DEPS_PREFIX=/bi/software/static \
+        HTSLIB_DIR=/path/to/htslib-1.17 \
+        STATIC=1
 
-That should be it. It will create an executable named `src/cluster_identifier`.
+That should create `src/build/cluster_identifier`.
+
+If htslib was built with libdeflate support, add:
+
+    $ make DEPS_PREFIX=/bi/software/static \
+        HTSLIB_DIR=/path/to/htslib-1.17 \
+        STATIC=1 USE_LIBDEFLATE=1
+
+If htslib was built with libcurl support, add:
+
+    $ make DEPS_PREFIX=/bi/software/static \
+        HTSLIB_DIR=/path/to/htslib-1.17 \
+        STATIC=1 USE_CURL=1
+
+For the most portable binary across CentOS and Ubuntu systems, build on the
+oldest target CentOS system and verify the result with:
+
+    $ ldd build/cluster_identifier
+
+Fully static binaries should report `not a dynamic executable`.
 
 Running
 -------
@@ -54,10 +130,10 @@ sequences. Second, `SCRAMble-MEIs.R` analyzes the cluster file for likely MEIs. 
 
 To run SCRAMble cluster_identifier:
 
-    $ /path/to/scramble/src/cluster_identifier -@ thread \
+    $ /path/to/scramble/src/build/cluster_identifier -@ thread \
         /path/to/test.bam > /path/to/test.clusters.txt
 
-    $ /path/to/scramble/src/cluster_identifier -@ thread \
+    $ /path/to/scramble/src/build/cluster_identifier -@ thread \
         -R /path/to/genome/human_genome.fasta /path/to/test.cram > /path/to/test.clusters.txt
 
 To run SCRAMble-MEIs(with default settings):
